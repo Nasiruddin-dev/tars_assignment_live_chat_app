@@ -95,11 +95,32 @@ export default function Sidebar({ onSelectConversation }: SidebarProps) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto relative">
+      <div className="flex-1 overflow-y-auto relative flex flex-col">
         {chats === undefined ? (
-          <p className="p-4 text-center text-sm text-gray-500">Loading chats...</p>
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-3">
+            <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+            <p className="text-sm text-gray-500">Loading chats...</p>
+          </div>
+        ) : chats.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-3">
+            <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
+              <MessageSquarePlus className="w-6 h-6 text-blue-500" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">No chats yet</p>
+              <p className="text-xs text-gray-500 mt-1">Click the + button below to start a conversation.</p>
+            </div>
+          </div>
         ) : filteredChats?.length === 0 ? (
-          <p className="p-4 text-center text-sm text-gray-500">No conversations yet.</p>
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-3">
+            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+              <Search className="w-6 h-6 text-gray-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">No results found</p>
+              <p className="text-xs text-gray-500 mt-1">We couldn't find any chats matching "{searchQuery}".</p>
+            </div>
+          </div>
         ) : (
           filteredChats?.map((chat) => (
             <div
@@ -113,7 +134,6 @@ export default function Sidebar({ onSelectConversation }: SidebarProps) {
                   alt={chat?.name || ""}
                   className="w-10 h-10 rounded-full object-cover"
                 />
-                {/* Only show online dot for 1-on-1s */}
                 {!chat?.isGroup && chat?.lastSeen !== undefined && chat.lastSeen > 0 && (now - chat.lastSeen < 5000) && (
                   <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                 )}
@@ -135,7 +155,7 @@ export default function Sidebar({ onSelectConversation }: SidebarProps) {
           ))
         )}
       </div>
-
+      
       {/* Floating Action Button */}
       <button 
         onClick={() => setShowModal(true)}

@@ -6,7 +6,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { useUser } from "@clerk/nextjs";
-import { Send, ArrowDown, Users, X, ArrowLeft } from "lucide-react"; // Added ArrowLeft
+import { Send, ArrowDown, Users, X, ArrowLeft, MessageSquare } from "lucide-react";
 
 interface ChatWindowProps {
   conversationId: Id<"conversations">;
@@ -187,8 +187,14 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
 
       <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50 relative">
         {messages.length === 0 ? (
-          <div className="h-full flex items-center justify-center">
-            <p className="text-gray-400 bg-white px-4 py-2 rounded-full shadow-sm text-sm border">No messages yet. Say hello! 👋</p>
+          <div className="h-full flex flex-col items-center justify-center space-y-4 animate-in fade-in duration-500">
+            <div className="w-16 h-16 bg-white border shadow-sm rounded-full flex items-center justify-center">
+              <MessageSquare className="w-8 h-8 text-blue-500" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-base font-medium text-gray-900">It's quiet in here...</h3>
+              <p className="text-sm text-gray-500 mt-1">Send a message to start the conversation.</p>
+            </div>
           </div>
         ) : (
           messages.map((msg, index) => {
