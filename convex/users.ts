@@ -1,6 +1,6 @@
 // convex/users.ts
 import { v } from "convex/values";
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, query, mutation } from "./_generated/server";
 
 export const syncUser = internalMutation({
   args: {
@@ -100,5 +100,23 @@ export const getUsers = query({
     enhancedUsers.sort((a, b) => b.lastMessageTime - a.lastMessageTime);
 
     return enhancedUsers;
+  },
+});
+
+export const updatePresence = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) return;
+
+    // Update their lastSeen timestamp to right now
+    await ctx.db.patch(user._id, { lastSeen: Date.now() });
   },
 });

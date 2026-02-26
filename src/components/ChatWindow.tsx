@@ -21,9 +21,17 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [showUnreadBanner, setShowUnreadBanner] = useState(false);
   
-  // NEW: Track the exact index where new messages start
+  // Track the exact index where new messages start
   const [firstUnreadIndex, setFirstUnreadIndex] = useState<number | null>(null);
   const prevMessageCount = useRef<number | null>(null);
+
+  // NEW: Add a ticking 'now' state to force UI updates for the "Online" text
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const messages = useQuery(api.messages.get, { conversationId });
   const otherUser = useQuery(api.conversations.getChatDetails, { conversationId });
@@ -139,6 +147,10 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
             />
             <div>
               <h3 className="font-semibold text-gray-800 text-sm">{otherUser.name}</h3>
+              {/* Calculate real-time presence for the header using 'now' */}
+              {otherUser.lastSeen && (now - otherUser.lastSeen < 5000) && (
+                <p className="text-[10px] text-green-500 font-medium">Online</p>
+              )}
             </div>
           </>
         ) : (

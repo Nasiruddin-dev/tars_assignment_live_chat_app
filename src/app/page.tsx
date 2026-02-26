@@ -1,14 +1,42 @@
 // src/app/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react"; // <-- Import useEffect
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { useMutation } from "convex/react"; // <-- Import useMutation
+import { api } from "../../convex/_generated/api"; // <-- Import api
 import Sidebar from "../components/Sidebar";
-import ChatWindow from "../components/ChatWindow"; // Import the new component
+import ChatWindow from "../components/ChatWindow";
 import { Id } from "../../convex/_generated/dataModel";
 
 export default function Home() {
   const [activeConversationId, setActiveConversationId] = useState<Id<"conversations"> | null>(null);
+  
+  const updatePresence = useMutation(api.users.updatePresence);
+
+  useEffect(() => {
+    // Only send the ping if the user is actually looking at the tab
+    const ping = () => {
+      if (document.visibilityState === "visible") {
+        updatePresence().catch(() => {});
+      }
+    };
+
+    ping(); // Ping immediately on load
+    const interval = setInterval(ping, 2000); // Ping every 15 seconds
+
+    // Instantly ping when they switch back to this tab
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") ping();
+    };
+    
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [updatePresence]);
 
   return (
     <main className="flex h-screen w-full bg-white overflow-hidden">

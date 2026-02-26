@@ -8,7 +8,8 @@ export default defineSchema({
     email: v.string(),
     imageUrl: v.optional(v.string()),
     clerkId: v.string(),
-    isOnline: v.boolean(), // For the Online/Offline status requirement
+    isOnline: v.boolean(),
+    lastSeen: v.optional(v.number()),
   }).index("by_clerkId", ["clerkId"]),
 
   conversations: defineTable({

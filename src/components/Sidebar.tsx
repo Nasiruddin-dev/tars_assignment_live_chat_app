@@ -1,7 +1,7 @@
 // src/components/Sidebar.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { UserButton } from "@clerk/nextjs";
@@ -16,6 +16,15 @@ interface SidebarProps {
 export default function Sidebar({ onSelectConversation }: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isStartingChat, setIsStartingChat] = useState(false);
+  
+  // NEW: Add a ticking 'now' state to force UI updates for the green dots
+  const [now, setNow] = useState(Date.now());
+
+  // Make the UI re-evaluate the green dots every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
   
   // 2. Fetch users and grab our new mutation
   const users = useQuery(api.users.getUsers);
@@ -85,7 +94,8 @@ export default function Sidebar({ onSelectConversation }: SidebarProps) {
                   alt={user.name}
                   className="w-10 h-10 rounded-full object-cover"
                 />
-                {user.isOnline && (
+                {/* Calculate real-time presence using 'now' */}
+                {user.lastSeen && (now - user.lastSeen < 5000) && (
                   <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                 )}
               </div>
