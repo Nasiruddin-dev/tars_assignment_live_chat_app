@@ -120,3 +120,13 @@ export const updatePresence = mutation({
     await ctx.db.patch(user._id, { lastSeen: Date.now() });
   },
 });
+
+export const getAllUsers = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+    const users = await ctx.db.query("users").collect();
+    return users.filter((u) => u.clerkId !== identity.subject);
+  },
+});
