@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { UserButton } from "@clerk/nextjs";
-import { Search, Loader2, MessageSquarePlus, X } from "lucide-react";
+import { Search, Loader2, MessageSquarePlus, X, Users } from "lucide-react";
 import { Id } from "../../convex/_generated/dataModel";
 
 interface SidebarProps {
@@ -139,7 +139,17 @@ export default function Sidebar({ onSelectConversation }: SidebarProps) {
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">{chat?.name}</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-900 truncate">{chat?.name}</p>
+                  
+                  {/* NEW: Show member count ONLY for group chats */}
+                  {chat?.isGroup && (
+                    <span className="text-[10px] text-gray-400 flex items-center gap-1 ml-2 flex-shrink-0">
+                      <Users className="w-3 h-3" /> {chat.memberCount}
+                    </span>
+                  )}
+                </div>
+                
                 {chat?.lastMessageContent && (
                   <p className={`text-xs truncate ${chat.unreadCount > 0 ? "text-gray-900 font-semibold" : "text-gray-500"}`}>
                     {chat.lastMessageContent}
@@ -155,7 +165,7 @@ export default function Sidebar({ onSelectConversation }: SidebarProps) {
           ))
         )}
       </div>
-      
+
       {/* Floating Action Button */}
       <button 
         onClick={() => setShowModal(true)}

@@ -114,11 +114,19 @@ export const getSidebarChats = query({
         const conv = await ctx.db.get(mem.conversationId);
         if (!conv) return null;
 
-        let name, imageUrl, isOnline = false, lastSeen = 0;
+        let name, imageUrl, isOnline = false, lastSeen = 0, memberCount = 0; // <-- Added memberCount
 
         if (conv.isGroup) {
           name = conv.name;
           imageUrl = `https://ui-avatars.com/api/?name=${conv.name}&background=0D8ABC&color=fff`;
+          
+          // NEW: Count the members for groups
+          const allMembers = await ctx.db
+            .query("conversationMembers")
+            .withIndex("by_conversationId", (q) => q.eq("conversationId", conv._id))
+            .collect();
+          memberCount = allMembers.length;
+          
         } else {
           const otherMem = await ctx.db
             .query("conversationMembers")
@@ -151,6 +159,7 @@ export const getSidebarChats = query({
           isOnline,
           lastSeen,
           isGroup: conv.isGroup,
+          memberCount, // <-- Pass it to the frontend!
           unreadCount: mem.unreadCount || 0,
           lastMessageContent,
           lastMessageTime,
