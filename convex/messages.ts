@@ -1,4 +1,3 @@
-// convex/messages.ts
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
@@ -63,7 +62,6 @@ export const get = query({
           ...message,
           senderName: sender?.name,
           senderImage: sender?.imageUrl,
-          // ADD THIS LINE: Pass the Clerk ID to the frontend!
           senderClerkId: sender?.clerkId, 
         };
       })
@@ -99,5 +97,41 @@ export const deleteMessage = mutation({
     await ctx.db.patch(args.messageId, {
       isDeleted: true,
     });
+  },
+});
+
+export const toggleReaction = mutation({
+  args: { 
+    messageId: v.id("messages"), 
+    emoji: v.string() 
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const msg = await ctx.db.get(args.messageId);
+    if (!msg) throw new Error("Message not found");
+
+    // Grab existing reactions or start with an empty array
+    let reactions = msg.reactions || [];
+    
+    // Check if this user already reacted to this message
+    const existingIndex = reactions.findIndex(r => r.clerkId === identity.subject);
+
+    if (existingIndex !== -1) {
+      if (reactions[existingIndex].emoji === args.emoji) {
+        // 1. They clicked the SAME emoji: Remove it
+        reactions.splice(existingIndex, 1);
+      } else {
+        // 2. They clicked a DIFFERENT emoji: Swap it
+        reactions[existingIndex].emoji = args.emoji;
+      }
+    } else {
+      // 3. They haven't reacted yet: Add it
+      reactions.push({ clerkId: identity.subject, emoji: args.emoji });
+    }
+
+    // Save the updated array to the database
+    await ctx.db.patch(args.messageId, { reactions });
   },
 });

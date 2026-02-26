@@ -48,6 +48,7 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
   const sendMessage = useMutation(api.messages.send);
   const markAsRead = useMutation(api.conversations.markAsRead);
   const deleteMessage = useMutation(api.messages.deleteMessage);
+  const toggleReaction = useMutation(api.messages.toggleReaction);
 
   useEffect(() => {
     setFirstUnreadIndex(null);
@@ -215,22 +216,41 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
 
                 <div className={`flex ${isMe ? "justify-end" : "justify-start"} mb-4`}>
                   
-                  <div className={`flex flex-col gap-1 max-w-[85%] md:max-w-[70%] ${isMe ? "items-end" : "items-start"}`}>
+                  <div className={`flex flex-col gap-1 max-w-[85%] md:max-w-[70%] relative ${isMe ? "items-end" : "items-start"}`}>
                     {showSenderName && (
                       <span className="text-[10px] text-gray-500 font-medium ml-1">
                         {msg.senderName}
                       </span>
                     )}
+
+                    {/* FLOATING EMOJI PICKER MENU */}
+                    {selectedMessageId === msg._id && !msg.isDeleted && (
+                      <div className={`absolute z-30 -top-10 flex gap-1 bg-white border shadow-md rounded-full px-2 py-1 ${isMe ? "right-0" : "left-0"}`}>
+                        {["👍", "❤", "😂", "😮", "😢"].map((emoji) => (
+                          <button
+                            key={emoji}
+                            onClick={(e) => {
+                              e.stopPropagation(); // Don't trigger the bubble click
+                              toggleReaction({ messageId: msg._id, emoji });
+                              setSelectedMessageId(null); // Hide menu after reacting
+                            }}
+                            className="hover:scale-125 transition-transform px-1.5 py-0.5 text-lg"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     
-                    {/* MESSAGE BUBBLE (Now Clickable) */}
+                    {/* MESSAGE BUBBLE (Now anyone's message is clickable!) */}
                     <div 
                       onClick={() => {
-                        // Only allow tapping our own messages that aren't already deleted
-                        if (isMe && !msg.isDeleted) {
+                        // Allow tapping ANY active message to open the reaction menu
+                        if (!msg.isDeleted) {
                           setSelectedMessageId(selectedMessageId === msg._id ? null : msg._id);
                         }
                       }}
-                      className={`px-4 py-2.5 w-fit max-w-full shadow-sm transition-all ${isMe && !msg.isDeleted ? "cursor-pointer" : ""} ${
+                      className={`px-4 py-2.5 w-fit max-w-full shadow-sm transition-all ${!msg.isDeleted ? "cursor-pointer" : ""} ${
                         msg.isDeleted 
                           ? "bg-transparent border border-gray-300 text-gray-500 italic rounded-2xl" 
                           : isMe 
@@ -239,25 +259,53 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
                       }`}
                     >
                       {msg.isDeleted ? (
-                        <p className="text-sm flex items-center gap-1">
-                          This message was deleted
-                        </p>
+                        <p className="text-sm flex items-center gap-1">This message was deleted</p>
                       ) : (
                         <p className="text-sm leading-relaxed break-words break-all whitespace-pre-wrap">{msg.content}</p>
                       )}
                     </div>
 
+                    {/* REACTION COUNT BADGES */}
+                    {!msg.isDeleted && msg.reactions && msg.reactions.length > 0 && (
+                      <div className={`flex flex-wrap gap-1 mt-0.5 ${isMe ? "justify-end" : "justify-start"}`}>
+                        {Object.entries(
+                          // Group reactions by emoji and count them
+                          msg.reactions.reduce((acc, curr) => {
+                            acc[curr.emoji] = (acc[curr.emoji] || 0) + 1;
+                            return acc;
+                          }, {} as Record<string, number>)
+                        ).map(([emoji, count]) => {
+                          // Highlight the badge if I reacted with this emoji
+                          const iReacted = msg.reactions?.some(r => r.clerkId === user?.id && r.emoji === emoji);
+                          return (
+                            <div 
+                              key={emoji} 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleReaction({ messageId: msg._id, emoji });
+                              }}
+                              className={`cursor-pointer text-[10px] px-1.5 py-0.5 rounded-full border flex items-center gap-1 transition-colors ${
+                                iReacted ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200 hover:bg-gray-50"
+                              }`}
+                            >
+                              <span>{emoji}</span>
+                              <span className="text-gray-500 font-medium">{count}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
                     {/* TIMESTAMP & INSTANT DELETE BUTTON */}
-                    <div className={`flex items-center gap-2 text-[10px] text-gray-400 ${isMe ? "justify-end pr-1" : "justify-start pl-1"}`}>
+                    <div className={`flex items-center gap-2 text-[10px] text-gray-400 mt-0.5 ${isMe ? "justify-end pr-1" : "justify-start pl-1"}`}>
                       <span>{formatTimestamp(msg._creationTime)}</span>
                       
-                      {/* Only show trash icon if THIS specific message is tapped! */}
                       {selectedMessageId === msg._id && isMe && !msg.isDeleted && (
                         <button 
                           onClick={(e) => {
-                            e.stopPropagation(); // Prevents the bubble's onClick from firing
+                            e.stopPropagation();
                             deleteMessage({ messageId: msg._id });
-                            setSelectedMessageId(null); // Hide icon immediately after click
+                            setSelectedMessageId(null);
                           }}
                           className="text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 rounded p-1 transition-colors"
                           title="Delete message"
