@@ -72,3 +72,32 @@ export const get = query({
     return messagesWithSender;
   },
 });
+
+export const deleteMessage = mutation({
+  args: {
+    messageId: v.id("messages"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const me = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!me) throw new Error("User not found");
+
+    const msg = await ctx.db.get(args.messageId);
+    if (!msg) throw new Error("Message not found");
+
+    // Security check: Only the sender can delete their message
+    if (msg.senderId !== me._id) {
+      throw new Error("You can only delete your own messages");
+    }
+
+    // Soft delete: We patch the record, but we do NOT remove it from the database
+    await ctx.db.patch(args.messageId, {
+      isDeleted: true,
+    });
+  },
+});

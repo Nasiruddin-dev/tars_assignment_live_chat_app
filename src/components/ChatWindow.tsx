@@ -6,11 +6,11 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { useUser } from "@clerk/nextjs";
-import { Send, ArrowDown, Users, X, ArrowLeft, MessageSquare } from "lucide-react";
+import { Send, ArrowDown, Users, X, ArrowLeft, MessageSquare, Trash2 } from "lucide-react";
 
 interface ChatWindowProps {
   conversationId: Id<"conversations">;
-  onBack: () => void; // NEW PROP for the mobile back button
+  onBack: () => void;
 }
 
 export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) {
@@ -28,9 +28,11 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
   const [now, setNow] = useState(Date.now());
   const [showGroupInfo, setShowGroupInfo] = useState(false);
 
+  // Track which message is tapped to show the delete button
+  const [selectedMessageId, setSelectedMessageId] = useState<Id<"messages"> | null>(null);
+
   const [lastTyped, setLastTyped] = useState(0);
   const updateTyping = useMutation(api.conversations.updateTyping);
-  // Default to an empty array so it doesn't crash while loading
   const typingMembers = useQuery(api.conversations.getTypingStatus, { conversationId }) || [];
   
   // Only consider them "typing" if their last keystroke was less than 2 seconds ago
@@ -45,6 +47,7 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
   const chatDetails = useQuery(api.conversations.getChatDetails, { conversationId });
   const sendMessage = useMutation(api.messages.send);
   const markAsRead = useMutation(api.conversations.markAsRead);
+  const deleteMessage = useMutation(api.messages.deleteMessage);
 
   useEffect(() => {
     setFirstUnreadIndex(null);
@@ -53,6 +56,7 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
     setShowUnreadBanner(false);
     setShowGroupInfo(false);
     setNewMessage("");
+    setSelectedMessageId(null);
   }, [conversationId]);
 
   useEffect(() => {
@@ -130,7 +134,6 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
       <div className="h-16 border-b px-4 md:px-6 flex items-center justify-between bg-white shadow-sm z-20 relative">
         {chatDetails ? (
           <div className="flex items-center gap-2 md:gap-3">
-            {/* MOBILE BACK BUTTON */}
             <button onClick={onBack} className="md:hidden p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors">
               <ArrowLeft className="w-5 h-5 text-gray-600" />
             </button>
@@ -211,6 +214,7 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
                 )}
 
                 <div className={`flex ${isMe ? "justify-end" : "justify-start"} mb-4`}>
+                  
                   <div className={`flex flex-col gap-1 max-w-[85%] md:max-w-[70%] ${isMe ? "items-end" : "items-start"}`}>
                     {showSenderName && (
                       <span className="text-[10px] text-gray-500 font-medium ml-1">
@@ -218,12 +222,51 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
                       </span>
                     )}
                     
-                    <div className={`px-4 py-2.5 rounded-2xl w-fit max-w-full ${isMe ? "bg-blue-600 text-white rounded-br-sm" : "bg-white border text-gray-900 rounded-bl-sm shadow-sm"}`}>
+                    {/* MESSAGE BUBBLE (Now Clickable) */}
+                    <div 
+                      onClick={() => {
+                        // Only allow tapping our own messages that aren't already deleted
+                        if (isMe && !msg.isDeleted) {
+                          setSelectedMessageId(selectedMessageId === msg._id ? null : msg._id);
+                        }
+                      }}
+                      className={`px-4 py-2.5 w-fit max-w-full shadow-sm transition-all ${isMe && !msg.isDeleted ? "cursor-pointer" : ""} ${
+                        msg.isDeleted 
+                          ? "bg-transparent border border-gray-300 text-gray-500 italic rounded-2xl" 
+                          : isMe 
+                            ? "bg-blue-600 text-white rounded-2xl rounded-br-sm" 
+                            : "bg-white border text-gray-900 rounded-2xl rounded-bl-sm" 
+                      }`}
+                    >
+                      {msg.isDeleted ? (
+                        <p className="text-sm flex items-center gap-1">
+                          This message was deleted
+                        </p>
+                      ) : (
                         <p className="text-sm leading-relaxed break-words break-all whitespace-pre-wrap">{msg.content}</p>
+                      )}
                     </div>
-                    <span className={`text-[10px] text-gray-400 ${isMe ? "text-right pr-1" : "text-left pl-1"}`}>
-                      {formatTimestamp(msg._creationTime)}
-                    </span>
+
+                    {/* TIMESTAMP & INSTANT DELETE BUTTON */}
+                    <div className={`flex items-center gap-2 text-[10px] text-gray-400 ${isMe ? "justify-end pr-1" : "justify-start pl-1"}`}>
+                      <span>{formatTimestamp(msg._creationTime)}</span>
+                      
+                      {/* Only show trash icon if THIS specific message is tapped! */}
+                      {selectedMessageId === msg._id && isMe && !msg.isDeleted && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevents the bubble's onClick from firing
+                            deleteMessage({ messageId: msg._id });
+                            setSelectedMessageId(null); // Hide icon immediately after click
+                          }}
+                          className="text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 rounded p-1 transition-colors"
+                          title="Delete message"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
                   </div>
                 </div>
               </div>

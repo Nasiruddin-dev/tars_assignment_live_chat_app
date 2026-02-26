@@ -21,8 +21,8 @@ export default defineSchema({
   conversationMembers: defineTable({
     userId: v.id("users"),
     conversationId: v.id("conversations"),
-    unreadCount: v.number(), // For the unread message count badge
-    typingAt: v.optional(v.number()), // For the typing indicator feature
+    unreadCount: v.number(),
+    typingAt: v.optional(v.number()), 
   })
     .index("by_conversationId", ["conversationId"])
     .index("by_userId", ["userId"])
@@ -32,6 +32,6 @@ export default defineSchema({
     conversationId: v.id("conversations"),
     senderId: v.id("users"),
     content: v.string(),
-    isDeleted: v.boolean(), // Soft delete requirement: don't actually remove the record
+    isDeleted: v.boolean(), 
   }).index("by_conversationId", ["conversationId"]),
 });
