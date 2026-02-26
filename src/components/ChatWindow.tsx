@@ -28,6 +28,14 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
   const [now, setNow] = useState(Date.now());
   const [showGroupInfo, setShowGroupInfo] = useState(false);
 
+  const [lastTyped, setLastTyped] = useState(0);
+  const updateTyping = useMutation(api.conversations.updateTyping);
+  // Default to an empty array so it doesn't crash while loading
+  const typingMembers = useQuery(api.conversations.getTypingStatus, { conversationId }) || [];
+  
+  // Only consider them "typing" if their last keystroke was less than 2 seconds ago
+  const activeTypers = typingMembers.filter((t) => now - t.typingAt < 2000);
+
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
@@ -197,7 +205,6 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
                 )}
 
                 <div className={`flex ${isMe ? "justify-end" : "justify-start"} mb-4`}>
-                  {/* FIXED: Added items-end/start and w-fit to ensure the bubble hugs the text closely */}
                   <div className={`flex flex-col gap-1 max-w-[85%] md:max-w-[70%] ${isMe ? "items-end" : "items-start"}`}>
                     {showSenderName && (
                       <span className="text-[10px] text-gray-500 font-medium ml-1">
@@ -220,9 +227,38 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
         <div ref={messagesEndRef} className="h-1" />
       </div>
 
-      <div className="p-3 md:p-4 bg-white border-t z-20">
+      {/* FOOTER & INPUT AREA */}
+      <div className="p-3 md:p-4 bg-white border-t z-20 relative">
+        
+        {/* ANIMATED TYPING INDICATOR */}
+        {activeTypers.length > 0 && (
+          <div className="absolute -top-8 left-6 flex items-center gap-2 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-t-lg border border-b-0 text-xs text-gray-500 shadow-sm transition-all">
+            <div className="flex gap-1">
+              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></span>
+              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></span>
+              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></span>
+            </div>
+            <span className="font-medium">
+              {chatDetails?.isGroup ? `${activeTypers[0].name} is typing...` : "typing..."}
+            </span>
+          </div>
+        )}
+
         <form onSubmit={handleSend} className="flex gap-2 relative">
-          <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type a message..." className="flex-1 bg-gray-100 border-transparent rounded-full pl-4 pr-12 py-3 text-sm outline-none transition-all focus:bg-white focus:ring-2 focus:ring-blue-500" />
+          <input 
+            type="text" 
+            value={newMessage} 
+            onChange={(e) => {
+              setNewMessage(e.target.value);
+              // Send a typing ping to the server, but only once every 1.5 seconds to save database bandwidth!
+              if (now - lastTyped > 1500) {
+                setLastTyped(now);
+                updateTyping({ conversationId }).catch(() => {});
+              }
+            }} 
+            placeholder="Type a message..." 
+            className="flex-1 bg-gray-100 border-transparent rounded-full pl-4 pr-12 py-3 text-sm outline-none transition-all focus:bg-white focus:ring-2 focus:ring-blue-500" 
+          />
           <button type="submit" disabled={!newMessage.trim()} className="absolute right-2 top-1.5 bottom-1.5 p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
             <Send className="w-4 h-4" />
           </button>

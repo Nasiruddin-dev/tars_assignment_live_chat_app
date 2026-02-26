@@ -22,7 +22,7 @@ export default defineSchema({
     userId: v.id("users"),
     conversationId: v.id("conversations"),
     unreadCount: v.number(), // For the unread message count badge
-    typingIndicator: v.optional(v.boolean()), // For the typing indicator feature
+    typingAt: v.optional(v.number()), // For the typing indicator feature
   })
     .index("by_conversationId", ["conversationId"])
     .index("by_userId", ["userId"])

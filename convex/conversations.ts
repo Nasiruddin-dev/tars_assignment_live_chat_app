@@ -204,3 +204,49 @@ export const getChatDetails = query({
     }
   },
 });
+
+export const updateTyping = mutation({
+  args: { conversationId: v.id("conversations") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return;
+
+    const me = await ctx.db.query("users").withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject)).first();
+    if (!me) return;
+
+    const membership = await ctx.db
+      .query("conversationMembers")
+      .withIndex("by_userId_and_conversationId", (q) => q.eq("userId", me._id).eq("conversationId", args.conversationId))
+      .first();
+
+    if (membership) {
+      // Update the database with the exact millisecond they pressed a key
+      await ctx.db.patch(membership._id, { typingAt: Date.now() });
+    }
+  },
+});
+
+export const getTypingStatus = query({
+  args: { conversationId: v.id("conversations") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const members = await ctx.db
+      .query("conversationMembers")
+      .withIndex("by_conversationId", (q) => q.eq("conversationId", args.conversationId))
+      .collect();
+
+    const typingUsers = [];
+    for (const member of members) {
+      if (member.typingAt) {
+        const user = await ctx.db.get(member.userId);
+        // Exclude ourselves from the typing list!
+        if (user && user.clerkId !== identity.subject) {
+          typingUsers.push({ name: user.name, typingAt: member.typingAt });
+        }
+      }
+    }
+    return typingUsers; // Returns a list of who is typing and when
+  },
+});
