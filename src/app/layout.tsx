@@ -1,13 +1,16 @@
+// src/app/layout.tsx
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { ClerkProvider } from "@clerk/nextjs";
 import ConvexClientProvider from "../providers/ConvexClientProvider";
+import { ThemeProvider } from "../components/ThemeProvider"; // <-- IMPORT THIS
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Tars Live Chat",
-  description: "Real-time messaging app for Tars Internship Challenge",
+  description: "Real-time chat application",
 };
 
 export default function RootLayout({
@@ -16,12 +19,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <ConvexClientProvider>
-          {children}
-        </ConvexClientProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" suppressHydrationWarning>
+        <body className={inter.className}>
+          <ConvexClientProvider>
+            {/* WRAP CHILDREN WITH THEME PROVIDER */}
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              {children}
+            </ThemeProvider>
+          </ConvexClientProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
