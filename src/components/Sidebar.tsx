@@ -76,7 +76,7 @@ export default function Sidebar({ onSelectConversation }: SidebarProps) {
   };
 
   return (
-    <div className="w-80 h-screen bg-gray-50 border-r flex flex-col relative">
+    <div className="w-full h-full bg-gray-50 border-r flex flex-col relative">
       <div className="p-4 border-b bg-white flex items-center justify-between">
         <h2 className="font-semibold text-lg tracking-tight">Chats</h2>
         <UserButton afterSignOutUrl="/" />

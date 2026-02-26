@@ -6,13 +6,14 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { useUser } from "@clerk/nextjs";
-import { Send, ArrowDown, Users, X } from "lucide-react";
+import { Send, ArrowDown, Users, X, ArrowLeft } from "lucide-react"; // Added ArrowLeft
 
 interface ChatWindowProps {
   conversationId: Id<"conversations">;
+  onBack: () => void; // NEW PROP for the mobile back button
 }
 
-export default function ChatWindow({ conversationId }: ChatWindowProps) {
+export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) {
   const { user } = useUser();
   const [newMessage, setNewMessage] = useState("");
   
@@ -25,7 +26,7 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
   const prevMessageCount = useRef<number | null>(null);
 
   const [now, setNow] = useState(Date.now());
-  const [showGroupInfo, setShowGroupInfo] = useState(false); // NEW STATE for Member List
+  const [showGroupInfo, setShowGroupInfo] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1000);
@@ -42,7 +43,7 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
     prevMessageCount.current = null;
     setIsScrolledUp(false);
     setShowUnreadBanner(false);
-    setShowGroupInfo(false); // Reset member list
+    setShowGroupInfo(false);
     setNewMessage("");
   }, [conversationId]);
 
@@ -115,34 +116,40 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white h-screen relative overflow-hidden">
+    <div className="flex-1 flex flex-col bg-white h-full relative overflow-hidden w-full">
       
       {/* HEADER */}
-      <div className="h-16 border-b px-6 flex items-center justify-between bg-white shadow-sm z-20 relative">
+      <div className="h-16 border-b px-4 md:px-6 flex items-center justify-between bg-white shadow-sm z-20 relative">
         {chatDetails ? (
-          <div 
-            className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg -ml-2 transition-colors"
-            onClick={() => chatDetails.isGroup && setShowGroupInfo(true)}
-          >
-            <img src={chatDetails.imageUrl || ""} alt={chatDetails.name || "User"} className="w-9 h-9 rounded-full object-cover" />
-            <div>
-              <h3 className="font-semibold text-gray-800 text-sm flex items-center gap-2">
-                {chatDetails.name}
-                {chatDetails.isGroup && <Users className="w-3 h-3 text-gray-400" />}
-              </h3>
-              {!chatDetails.isGroup && chatDetails.lastSeen !== undefined && chatDetails.lastSeen > 0 && (now - chatDetails.lastSeen < 5000) ? (
-                <p className="text-[10px] text-green-500 font-medium">Online</p>
-              ) : chatDetails.isGroup ? (
-                <p className="text-[10px] text-gray-400">{chatDetails.members?.length} members</p>
-              ) : null}
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* MOBILE BACK BUTTON */}
+            <button onClick={onBack} className="md:hidden p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors">
+              <ArrowLeft className="w-5 h-5 text-gray-600" />
+            </button>
+            
+            <div 
+              className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+              onClick={() => chatDetails.isGroup && setShowGroupInfo(true)}
+            >
+              <img src={chatDetails.imageUrl || ""} alt={chatDetails.name || "User"} className="w-9 h-9 rounded-full object-cover" />
+              <div>
+                <h3 className="font-semibold text-gray-800 text-sm flex items-center gap-2">
+                  {chatDetails.name}
+                  {chatDetails.isGroup && <Users className="w-3 h-3 text-gray-400" />}
+                </h3>
+                {!chatDetails.isGroup && chatDetails.lastSeen !== undefined && chatDetails.lastSeen > 0 && (now - chatDetails.lastSeen < 5000) ? (
+                  <p className="text-[10px] text-green-500 font-medium">Online</p>
+                ) : chatDetails.isGroup ? (
+                  <p className="text-[10px] text-gray-400">{chatDetails.members?.length} members</p>
+                ) : null}
+              </div>
             </div>
           </div>
         ) : (
-          <h3 className="font-semibold text-gray-800">Loading...</h3>
+          <h3 className="font-semibold text-gray-800 ml-4">Loading...</h3>
         )}
       </div>
 
-      {/* FLOATING BANNER */}
       {showUnreadBanner && (
         <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-30">
           <button onClick={scrollToBottom} className="flex items-center gap-2 bg-blue-600/90 backdrop-blur-sm text-white px-4 py-2 rounded-full shadow-lg text-sm hover:bg-blue-700 animate-bounce">
@@ -151,7 +158,6 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
         </div>
       )}
 
-      {/* DROPDOWN GROUP MEMBER PANEL (Mobile Responsive) */}
       {showGroupInfo && chatDetails?.isGroup && (
         <div className="absolute top-16 left-0 sm:left-auto sm:right-6 w-full sm:w-72 bg-white border shadow-xl z-40 flex flex-col sm:rounded-b-xl max-h-64 sm:max-h-96 animate-in slide-in-from-top-2">
           <div className="p-3 border-b flex items-center justify-between bg-gray-50 sm:rounded-t-none">
@@ -171,8 +177,7 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
         </div>
       )}
 
-      {/* MESSAGES AREA */}
-      <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-6 bg-gray-50 relative">
+      <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50 relative">
         {messages.length === 0 ? (
           <div className="h-full flex items-center justify-center">
             <p className="text-gray-400 bg-white px-4 py-2 rounded-full shadow-sm text-sm border">No messages yet. Say hello! 👋</p>
@@ -181,7 +186,6 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
           messages.map((msg, index) => {
             const isMe = msg.senderClerkId === user?.id;
             const showDivider = index === firstUnreadIndex;
-            // NEW: Only show the sender's name if it's a group chat and the message isn't from me
             const showSenderName = chatDetails?.isGroup && !isMe;
             
             return (
@@ -193,16 +197,16 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
                 )}
 
                 <div className={`flex ${isMe ? "justify-end" : "justify-start"} mb-4`}>
-                  <div className="flex flex-col gap-1 max-w-[70%]">
-                    {/* SENDER NAME IN GROUP */}
+                  {/* FIXED: Added items-end/start and w-fit to ensure the bubble hugs the text closely */}
+                  <div className={`flex flex-col gap-1 max-w-[85%] md:max-w-[70%] ${isMe ? "items-end" : "items-start"}`}>
                     {showSenderName && (
                       <span className="text-[10px] text-gray-500 font-medium ml-1">
                         {msg.senderName}
                       </span>
                     )}
                     
-                    <div className={`px-4 py-2.5 rounded-2xl ${isMe ? "bg-blue-600 text-white rounded-br-sm" : "bg-white border text-gray-900 rounded-bl-sm shadow-sm"}`}>
-                      <p className="text-sm leading-relaxed">{msg.content}</p>
+                    <div className={`px-4 py-2.5 rounded-2xl w-fit max-w-full ${isMe ? "bg-blue-600 text-white rounded-br-sm" : "bg-white border text-gray-900 rounded-bl-sm shadow-sm"}`}>
+                        <p className="text-sm leading-relaxed break-words break-all whitespace-pre-wrap">{msg.content}</p>
                     </div>
                     <span className={`text-[10px] text-gray-400 ${isMe ? "text-right pr-1" : "text-left pl-1"}`}>
                       {formatTimestamp(msg._creationTime)}
@@ -216,7 +220,7 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
         <div ref={messagesEndRef} className="h-1" />
       </div>
 
-      <div className="p-4 bg-white border-t z-20">
+      <div className="p-3 md:p-4 bg-white border-t z-20">
         <form onSubmit={handleSend} className="flex gap-2 relative">
           <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type a message..." className="flex-1 bg-gray-100 border-transparent rounded-full pl-4 pr-12 py-3 text-sm outline-none transition-all focus:bg-white focus:ring-2 focus:ring-blue-500" />
           <button type="submit" disabled={!newMessage.trim()} className="absolute right-2 top-1.5 bottom-1.5 p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">

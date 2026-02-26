@@ -1,10 +1,10 @@
 // src/app/page.tsx
 "use client";
 
-import { useState, useEffect } from "react"; // <-- Import useEffect
+import { useState, useEffect } from "react";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
-import { useMutation } from "convex/react"; // <-- Import useMutation
-import { api } from "../../convex/_generated/api"; // <-- Import api
+import { useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import Sidebar from "../components/Sidebar";
 import ChatWindow from "../components/ChatWindow";
 import { Id } from "../../convex/_generated/dataModel";
@@ -15,35 +15,47 @@ export default function Home() {
   const updatePresence = useMutation(api.users.updatePresence);
 
   useEffect(() => {
-    // Only send the ping if the user is actually looking at the tab
     const ping = () => {
       if (document.visibilityState === "visible") {
         updatePresence().catch(() => {});
       }
     };
-
-    ping(); // Ping immediately on load
-    const interval = setInterval(ping, 2000); // Ping every 15 seconds
-
-    // Instantly ping when they switch back to this tab
+    ping();
+    const interval = setInterval(ping, 2000);
+    
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") ping();
     };
     
     document.addEventListener("visibilitychange", handleVisibilityChange);
-
     return () => {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [updatePresence]);
 
+  // NATIVE MOBILE BACK BUTTON SUPPORT
+  useEffect(() => {
+    const handlePopState = () => {
+      // If the user hits the browser/phone back button, clear the active chat
+      setActiveConversationId(null);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const handleSelectConversation = (id: Id<"conversations">) => {
+    setActiveConversationId(id);
+    // Push a state to the browser history so the back button knows what to do
+    window.history.pushState({ chatOpen: true }, "");
+  };
+
   return (
     <main className="flex h-screen w-full bg-white overflow-hidden">
       
       <SignedOut>
         <div className="flex w-full items-center justify-center bg-gray-50">
-          <div className="flex flex-col items-center justify-center gap-6 rounded-xl bg-white p-10 shadow-lg text-center">
+          <div className="flex flex-col items-center justify-center gap-6 rounded-xl bg-white p-10 shadow-lg text-center mx-4">
             <h1 className="text-3xl font-bold tracking-tight text-gray-900">Tars Live Chat</h1>
             <p className="text-gray-500 text-sm max-w-sm">
               Sign in to find other users and start messaging in real-time.
@@ -58,12 +70,18 @@ export default function Home() {
       </SignedOut>
 
       <SignedIn>
-        <Sidebar onSelectConversation={setActiveConversationId} />
+        {/* SIDEBAR: Hidden on mobile IF a chat is active */}
+        <div className={`${activeConversationId ? "hidden md:flex" : "flex"} w-full md:w-80 h-full flex-shrink-0`}>
+          <Sidebar onSelectConversation={handleSelectConversation} />
+        </div>
         
-        <div className="flex-1 flex flex-col bg-gray-50/50 relative">
+        {/* CHAT WINDOW: Hidden on mobile IF NO chat is active */}
+        <div className={`${activeConversationId ? "flex" : "hidden md:flex"} flex-1 h-full flex-col bg-gray-50/50 relative`}>
           {activeConversationId ? (
-            // Render the Chat Window when a user is selected!
-            <ChatWindow conversationId={activeConversationId} />
+            <ChatWindow 
+              conversationId={activeConversationId} 
+              onBack={() => window.history.back()} // The UI back button triggers the browser back action!
+            />
           ) : (
             <div className="flex-1 flex items-center justify-center text-center space-y-3">
               <div>
