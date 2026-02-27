@@ -80,6 +80,31 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
     prevMessageCount.current = messages.length;
   }, [messages?.length]);
 
+  // NEW: Push state when opening group info
+  const openGroupInfo = () => {
+    window.history.pushState({ chatOpen: true, groupInfoOpen: true }, "");
+    setShowGroupInfo(true);
+  };
+
+  // NEW: Safely close group info and clean up history
+  const closeGroupInfo = () => {
+    setShowGroupInfo(false);
+    if (window.history.state?.groupInfoOpen) {
+      window.history.back();
+    }
+  };
+
+  // NEW: Listen for the hardware back button to close the Group Info modal
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      if (showGroupInfo && !e.state?.groupInfoOpen) {
+        setShowGroupInfo(false);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [showGroupInfo]);
+
   const handleScroll = () => {
     if (!scrollContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
@@ -164,7 +189,7 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
             
             <div 
               className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded-lg transition-colors"
-              onClick={() => chatDetails.isGroup && setShowGroupInfo(true)}
+              onClick={() => chatDetails.isGroup && openGroupInfo()} 
             >
               <img src={chatDetails.imageUrl || ""} alt={chatDetails.name || "User"} className="w-9 h-9 rounded-full object-cover" />
               <div>
@@ -200,7 +225,7 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
         <div className="absolute top-16 left-0 sm:left-auto sm:right-6 w-full sm:w-72 bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-xl z-40 flex flex-col sm:rounded-b-xl max-h-64 sm:max-h-96 animate-in slide-in-from-top-2">
           <div className="p-3 border-b dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-800/50 sm:rounded-t-none">
             <h3 className="font-semibold text-sm text-gray-800 dark:text-gray-200">Group Members ({chatDetails.members?.length})</h3>
-            <button onClick={() => setShowGroupInfo(false)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-full transition-colors">
+            <button onClick={closeGroupInfo} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-full transition-colors">
               <X className="w-4 h-4"/>
             </button>
           </div>

@@ -30,7 +30,11 @@ export default function Home() {
   }, [updatePresence]);
 
   useEffect(() => {
-    const handlePopState = () => setActiveConversationId(null);
+    const handlePopState = (e: PopStateEvent) => {
+      if (e.state && e.state.chatOpen) return;
+      
+      setActiveConversationId(null);
+    };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
@@ -41,7 +45,8 @@ export default function Home() {
   };
 
   return (
-    <main className="flex h-screen w-full bg-white dark:bg-gray-900 overflow-hidden transition-colors">
+    // CHANGED: h-screen is now h-[100dvh] to fix mobile address bar shifting
+    <main className="flex h-[100dvh] w-full bg-white dark:bg-gray-900 overflow-hidden transition-colors">
       
       <SignedOut>
         <div className="flex w-full items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors">

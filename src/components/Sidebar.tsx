@@ -7,7 +7,7 @@ import { api } from "../../convex/_generated/api";
 import { UserButton } from "@clerk/nextjs";
 import { Search, Loader2, MessageSquarePlus, X, Users } from "lucide-react";
 import { Id } from "../../convex/_generated/dataModel";
-import { ThemeToggle } from "./ThemeToggle"; // <-- NEW IMPORT
+import { ThemeToggle } from "./ThemeToggle";
 
 interface SidebarProps {
   onSelectConversation: (id: Id<"conversations">) => void;
@@ -26,6 +26,17 @@ export default function Sidebar({ onSelectConversation }: SidebarProps) {
     return () => clearInterval(interval);
   }, []);
   
+  // NEW: Listen for the hardware back button to close the modal
+  useEffect(() => {
+    const handlePopState = () => {
+      if (showModal) {
+        setShowModal(false);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [showModal]);
+
   const chats = useQuery(api.conversations.getSidebarChats);
   const allUsers = useQuery(api.users.getAllUsers);
   
@@ -35,6 +46,20 @@ export default function Sidebar({ onSelectConversation }: SidebarProps) {
   const filteredChats = chats?.filter((chat) =>
     chat?.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // NEW: Safely open modal and push history state
+  const openModal = () => {
+    window.history.pushState({ modalOpen: true }, "");
+    setShowModal(true);
+  };
+
+  // NEW: Safely close modal and clean up history state
+  const closeModal = () => {
+    setShowModal(false);
+    if (window.history.state?.modalOpen) {
+      window.history.back();
+    }
+  };
 
   const handleCreateChat = async () => {
     if (selectedUsers.length === 0) return;
@@ -52,7 +77,7 @@ export default function Sidebar({ onSelectConversation }: SidebarProps) {
         const convId = await createGroup({ name: groupName, members: selectedUsers });
         onSelectConversation(convId);
       }
-      setShowModal(false);
+      closeModal(); // Use the new closeModal function here
       setSelectedUsers([]);
       setGroupName("");
     } catch (error) {
@@ -98,7 +123,6 @@ export default function Sidebar({ onSelectConversation }: SidebarProps) {
 
       <div className="flex-1 overflow-y-auto relative flex flex-col">
         {chats === undefined ? (
-          /* SKELETON LOADER FOR SIDEBAR */
           <div className="flex-1 p-3 space-y-3">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="flex items-center gap-3 p-2 animate-pulse">
@@ -168,8 +192,7 @@ export default function Sidebar({ onSelectConversation }: SidebarProps) {
         )}
       </div>
 
-      {/* FAB & MODALS... (Leaving unchanged structurally, adding dark classes) */}
-      <button onClick={() => setShowModal(true)} className="absolute bottom-6 right-6 p-4 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 hover:scale-105 transition-all z-20">
+      <button onClick={openModal} className="absolute bottom-6 right-6 p-4 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 hover:scale-105 transition-all z-20">
         <MessageSquarePlus className="w-6 h-6" />
       </button>
 
@@ -178,7 +201,7 @@ export default function Sidebar({ onSelectConversation }: SidebarProps) {
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-md flex flex-col max-h-[80vh] border dark:border-gray-700">
             <div className="p-4 border-b dark:border-gray-800 flex items-center justify-between">
               <h3 className="font-semibold text-lg dark:text-white">New Chat</h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><X className="w-5 h-5"/></button>
+              <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><X className="w-5 h-5"/></button>
             </div>
             <div className="p-4 flex-1 overflow-y-auto">
               {selectedUsers.length > 1 && (
