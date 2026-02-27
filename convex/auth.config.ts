@@ -1,7 +1,7 @@
 export default {
   providers: [
     {
-      domain: "https://gentle-chimp-66.clerk.accounts.dev", 
+      domain: process.env.CLERK_ISSUER_URL || "https://gentle-chimp-66.clerk.accounts.dev", 
       applicationID: "convex",
     },
   ],
