@@ -98,9 +98,17 @@ export default function Sidebar({ onSelectConversation }: SidebarProps) {
 
       <div className="flex-1 overflow-y-auto relative flex flex-col">
         {chats === undefined ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-3">
-            <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">Loading chats...</p>
+          /* SKELETON LOADER FOR SIDEBAR */
+          <div className="flex-1 p-3 space-y-3">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="flex items-center gap-3 p-2 animate-pulse">
+                <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex-shrink-0"></div>
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : chats.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-3">

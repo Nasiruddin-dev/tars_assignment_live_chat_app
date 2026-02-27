@@ -6,7 +6,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { useUser } from "@clerk/nextjs";
-import { Send, ArrowDown, Users, X, ArrowLeft, MessageSquare, Trash2 } from "lucide-react";
+import { Send, ArrowDown, Users, X, ArrowLeft, MessageSquare, Trash2, AlertCircle, RefreshCcw } from "lucide-react";
 
 interface ChatWindowProps {
   conversationId: Id<"conversations">;
@@ -29,6 +29,8 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
   const [showGroupInfo, setShowGroupInfo] = useState(false);
   const [selectedMessageId, setSelectedMessageId] = useState<Id<"messages"> | null>(null);
   const [lastTyped, setLastTyped] = useState(0);
+
+  const [failedMessages, setFailedMessages] = useState<{ tempId: string; content: string }[]>([]);
   
   const updateTyping = useMutation(api.conversations.updateTyping);
   const typingMembers = useQuery(api.conversations.getTypingStatus, { conversationId }) || [];
@@ -54,6 +56,7 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
     setShowGroupInfo(false);
     setNewMessage("");
     setSelectedMessageId(null);
+    setFailedMessages([]);
   }, [conversationId]);
 
   useEffect(() => {
@@ -96,29 +99,57 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
     setTimeout(() => setFirstUnreadIndex(null), 4000);
   };
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim()) return;
+  const sendOrRetry = async (content: string, tempId?: string) => {
+    const id = tempId || Date.now().toString();
+    
+    // OVERRIDE: Convex caches offline mutations. To meet the assignment's explicit "retry" UI requirement,
+    // we manually check for offline status and force the failure state.
+    if (!navigator.onLine) {
+      setFailedMessages((prev) => {
+        const filtered = prev.filter((m) => m.tempId !== id);
+        return [...filtered, { tempId: id, content }];
+      });
+      setTimeout(() => scrollToBottom(), 100);
+      return;
+    }
+
     try {
-      const content = newMessage;
-      setNewMessage("");
+      setFailedMessages((prev) => prev.filter((m) => m.tempId !== id));
       await sendMessage({ conversationId, content });
       scrollToBottom();
     } catch (error) {
-      console.error(error);
+      console.error("Message failed to send:", error);
+      setFailedMessages((prev) => [...prev, { tempId: id, content }]);
+      setTimeout(() => scrollToBottom(), 100);
     }
   };
 
-  const formatTimestamp = (creationTime: number) => {
-    const date = new Date(creationTime);
-    const timeString = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    if (date.toDateString() === new Date().toDateString()) return timeString;
-    return `${date.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${timeString}`;
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim()) return;
+    const content = newMessage;
+    setNewMessage("");
+    await sendOrRetry(content);
   };
 
-  if (messages === undefined) {
-    return <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">Loading...</div>;
-  }
+  // FORMATTERS FOR WHATSAPP STYLE DATES
+  const formatTime = (creationTime: number) => {
+    return new Date(creationTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatDateGroup = (creationTime: number) => {
+    const date = new Date(creationTime);
+    const now = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(now.getDate() - 1);
+
+    if (date.toDateString() === now.toDateString()) return "Today";
+    if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+    
+    const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+    if (date.getFullYear() !== now.getFullYear()) options.year = 'numeric';
+    return date.toLocaleDateString([], options);
+  };
 
   return (
     <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 h-full relative overflow-hidden w-full transition-colors">
@@ -150,7 +181,10 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
             </div>
           </div>
         ) : (
-          <h3 className="font-semibold text-gray-800 dark:text-gray-200 ml-4">Loading...</h3>
+          <div className="flex items-center gap-3 ml-2">
+             <div className="w-9 h-9 bg-gray-200 dark:bg-gray-800 rounded-full animate-pulse"></div>
+             <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-24 animate-pulse"></div>
+          </div>
         )}
       </div>
 
@@ -183,7 +217,16 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
 
       {/* MESSAGE AREA */}
       <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50 dark:bg-gray-900 relative transition-colors">
-        {messages.length === 0 ? (
+        
+        {messages === undefined ? (
+          <div className="flex-1 overflow-y-auto space-y-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className={`flex ${i % 2 === 0 ? "justify-end" : "justify-start"}`}>
+                <div className={`w-2/3 md:w-1/2 h-12 rounded-2xl animate-pulse ${i % 2 === 0 ? "bg-blue-100 dark:bg-blue-900/40 rounded-br-sm" : "bg-gray-200 dark:bg-gray-800 rounded-bl-sm"}`}></div>
+              </div>
+            ))}
+          </div>
+        ) : messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center space-y-4 animate-in fade-in duration-500">
             <div className="w-16 h-16 bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-sm rounded-full flex items-center justify-center">
               <MessageSquare className="w-8 h-8 text-blue-500 dark:text-blue-400" />
@@ -199,10 +242,26 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
             const showDivider = index === firstUnreadIndex;
             const showSenderName = chatDetails?.isGroup && !isMe;
             
+            // WHATSAPP STYLE DATE LOGIC
+            const currentDateString = new Date(msg._creationTime).toDateString();
+            const prevDateString = index > 0 ? new Date(messages[index - 1]._creationTime).toDateString() : null;
+            const showDateHeader = currentDateString !== prevDateString;
+            
             return (
               <div key={msg._id} className="flex flex-col">
+                
+                {/* DATE GROUP HEADER */}
+                {showDateHeader && (
+                  <div className="flex justify-center my-4">
+                    <span className="bg-gray-200/80 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[11px] font-medium px-3 py-1 rounded-full shadow-sm backdrop-blur-sm">
+                      {formatDateGroup(msg._creationTime)}
+                    </span>
+                  </div>
+                )}
+
+                {/* NEW MESSAGES DIVIDER */}
                 {showDivider && (
-                  <div className="flex items-center justify-center my-6">
+                  <div className="flex items-center justify-center mb-4">
                     <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs font-semibold px-4 py-1 rounded-full shadow-sm border border-blue-200 dark:border-blue-800">New Messages Below</span>
                   </div>
                 )}
@@ -216,7 +275,6 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
                       </span>
                     )}
 
-                    {/* FLOATING EMOJI PICKER MENU */}
                     {selectedMessageId === msg._id && !msg.isDeleted && (
                       <div className={`absolute z-30 -top-10 flex gap-1 bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-md rounded-full px-2 py-1 ${isMe ? "right-0" : "left-0"}`}>
                         {["👍", "❤", "😂", "😮", "😢"].map((emoji) => (
@@ -235,7 +293,6 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
                       </div>
                     )}
                     
-                    {/* MESSAGE BUBBLE */}
                     <div 
                       onClick={() => {
                         if (!msg.isDeleted) setSelectedMessageId(selectedMessageId === msg._id ? null : msg._id);
@@ -255,7 +312,6 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
                       )}
                     </div>
 
-                    {/* REACTION COUNT BADGES */}
                     {!msg.isDeleted && msg.reactions && msg.reactions.length > 0 && (
                       <div className={`flex flex-wrap gap-1 mt-0.5 ${isMe ? "justify-end" : "justify-start"}`}>
                         {Object.entries(
@@ -284,9 +340,9 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
                       </div>
                     )}
 
-                    {/* TIMESTAMP & INSTANT DELETE BUTTON */}
                     <div className={`flex items-center gap-2 text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 ${isMe ? "justify-end pr-1" : "justify-start pl-1"}`}>
-                      <span>{formatTimestamp(msg._creationTime)}</span>
+                      {/* ONLY RENDERING THE TIME HERE NOW */}
+                      <span>{formatTime(msg._creationTime)}</span>
                       
                       {selectedMessageId === msg._id && isMe && !msg.isDeleted && (
                         <button 
@@ -309,13 +365,36 @@ export default function ChatWindow({ conversationId, onBack }: ChatWindowProps) 
             );
           })
         )}
+
+        {failedMessages.map((msg) => (
+          <div key={msg.tempId} className="flex justify-end mb-4 animate-in fade-in slide-in-from-bottom-2">
+            <div className="flex flex-col gap-1 max-w-[85%] md:max-w-[70%] items-end">
+              
+              <div className="px-4 py-2.5 w-fit max-w-full shadow-sm transition-all bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 text-red-900 dark:text-red-200 rounded-2xl rounded-br-sm">
+                <p className="text-sm leading-relaxed break-words break-all whitespace-pre-wrap">{msg.content}</p>
+              </div>
+
+              <div className="flex items-center gap-2 text-[10px] text-red-500 dark:text-red-400 pr-1 mt-0.5">
+                <AlertCircle className="w-3 h-3" />
+                <span>Failed to send</span>
+                <button 
+                  onClick={() => sendOrRetry(msg.content, msg.tempId)}
+                  className="flex items-center gap-1 font-semibold hover:underline bg-red-100 dark:bg-red-900/40 px-2 py-0.5 rounded ml-1 transition-colors"
+                >
+                  <RefreshCcw className="w-2.5 h-2.5" /> Retry
+                </button>
+              </div>
+
+            </div>
+          </div>
+        ))}
+
         <div ref={messagesEndRef} className="h-1" />
       </div>
 
       {/* FOOTER & INPUT AREA */}
       <div className="p-3 md:p-4 bg-white dark:bg-gray-900 border-t dark:border-gray-800 z-20 relative transition-colors">
         
-        {/* ANIMATED TYPING INDICATOR */}
         {activeTypers.length > 0 && (
           <div className="absolute -top-8 left-6 flex items-center gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-3 py-1.5 rounded-t-lg border dark:border-gray-700 border-b-0 text-xs text-gray-500 dark:text-gray-400 shadow-sm transition-all">
             <div className="flex gap-1">
